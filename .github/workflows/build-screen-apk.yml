@@ -1,0 +1,111 @@
+name: Build Screen APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      screen_code:
+        description: Screen login code
+        required: true
+        type: string
+      screen_password:
+        description: Screen password
+        required: true
+        type: string
+      screen_name:
+        description: Screen display name
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build screen APK
+        run: |
+          flutter build apk --release \
+            --target lib/main_screen.dart \
+            --dart-define=USE_SUPABASE=true \
+            --dart-define=APP_FLAVOR=screen \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            --dart-define=SCREEN_CODE=${{ inputs.screen_code }} \
+            --dart-define=SCREEN_PASSWORD=${{ inputs.screen_password }} \
+            --dart-define=SCREEN_TITLE=${{ inputs.screen_name }}
+
+      - name: Prepare asset metadata
+        id: asset
+        shell: bash
+        run: |
+          built_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          asset_slug="$(echo '${{ inputs.screen_code }}' | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+          if [ -z "$asset_slug" ]; then
+            asset_slug="screen"
+          fi
+          asset_name="${asset_slug}.apk"
+          metadata_name="${asset_slug}.json"
+          cp build/app/outputs/flutter-apk/app-release.apk "$asset_name"
+          cat > "$metadata_name" <<EOF
+          {
+            "screen_code": "${{ inputs.screen_code }}",
+            "screen_name": "${{ inputs.screen_name }}",
+            "asset_name": "$asset_name",
+            "tag": "screen-apks",
+            "download_url": "${{ github.server_url }}/${{ github.repository }}/releases/download/screen-apks/$asset_name",
+            "workflow_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "built_at": "$built_at"
+          }
+          EOF
+          echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
+          echo "metadata_name=$metadata_name" >> "$GITHUB_OUTPUT"
+          echo "download_url=${{ github.server_url }}/${{ github.repository }}/releases/download/screen-apks/$asset_name" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view screen-apks >/dev/null 2>&1 || \
+          gh release create screen-apks --title "Screen APKs" --notes "Per-screen Android APK downloads."
+
+      - name: Upload APK to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload screen-apks "${{ steps.asset.outputs.asset_name }}" --clobber
+          gh release upload screen-apks "${{ steps.asset.outputs.metadata_name }}" --clobber
+
+      - name: Add workflow summary
+        run: |
+          {
+            echo "## Screen APK Ready"
+            echo ""
+            echo "- Screen code: \`${{ inputs.screen_code }}\`"
+            echo "- Screen name: \`${{ inputs.screen_name }}\`"
+            echo "- Asset: \`${{ steps.asset.outputs.asset_name }}\`"
+            echo "- Metadata: \`${{ steps.asset.outputs.metadata_name }}\`"
+            echo "- Download URL: ${{ steps.asset.outputs.download_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base href="/" />
+    <meta charset="UTF-8" />
+    <meta content="IE=Edge" http-equiv="X-UA-Compatible" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Ad Master Flutter" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>body { font-family: 'Inter', system-ui, sans-serif; }</style>
+    <title>Ad Master Flutter</title>
+  </head>
+  <body>
+    <script>
+      window.captureVideoThumbnail = function(url, callback) {
+        var video = document.createElement('video');
+        video.crossOrigin = 'anonymous';
+        video.muted = true;
+        video.preload = 'metadata';
+        video.src = url;
+        video.addEventListener('loadeddata', function() {
+          video.currentTime = 0;
+        });
+        video.addEventListener('seeked', function() {
+          try {
+            var canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 320;
+            canvas.height = video.videoHeight || 180;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(function(blob) {
+              if (!blob) { callback(null); return; }
+              var reader = new FileReader();
+              reader.onloadend = function() {
+                var arr = new Uint8Array(reader.result);
+                callback(arr);
+              };
+              reader.readAsArrayBuffer(blob);
+            }, 'image/png');
+          } catch(e) { callback(null); }
+        });
+        video.addEventListener('error', function() { callback(null); });
+        video.load();
+      };
+    </script>
+    <script src="flutter_bootstrap.js" async></script>
+  </body>
+</html>
