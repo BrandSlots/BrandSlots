@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ad-master-admin
+    runtime: static
+    rootDir: app
+    buildCommand: bash ./scripts/build_admin_web.sh
+    staticPublishPath: build/web
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

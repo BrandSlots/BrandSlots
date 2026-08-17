@@ -1,0 +1,2 @@
+# Kept intentionally minimal so the project stays analyzable even before
+# Flutter package resolution is available on a fresh machine.
